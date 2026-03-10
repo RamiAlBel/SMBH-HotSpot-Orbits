@@ -15,7 +15,8 @@ sbatch experiment_3_eq_half/submit.sh
 sbatch experiment_4_noneq_full/submit.sh
 sbatch experiment_5_noneq_half/submit.sh
 
-# Without noise (where configs exist)
+# Without noise
+sbatch experiment_1_eq_avg/submit_no_noise.sh
 sbatch experiment_2_eq_full/submit_no_noise.sh
 sbatch experiment_3_eq_half/submit_no_noise.sh
 sbatch experiment_4_noneq_full/submit_no_noise.sh

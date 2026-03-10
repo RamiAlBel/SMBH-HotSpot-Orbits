@@ -24,6 +24,7 @@ wheels/
 *.egg
 .dat
 *.pth
+*.csv
 
 
 # Results and outputs

@@ -22,7 +22,9 @@ from src.training.evaluation import (
 
 
 def main():
-    config_path = Path(__file__).parent / "config.yaml"
+    config_name = sys.argv[1] if len(sys.argv) > 1 else "config.yaml"
+    config_path = Path(__file__).parent / config_name
+    print(f"Loading config: {config_name}")
     config = load_config(config_path)
     
     root = get_repo_root()

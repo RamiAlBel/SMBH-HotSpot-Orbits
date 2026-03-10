@@ -124,7 +124,7 @@ def main():
                 percent = num_samples * 10
                 print(f"\n--- {percent}% orbit ({num_samples} samples) ---")
                 
-                sigma_values = []
+                seed_metrics = []
                 
                 for seed in tqdm(
                     config['training']['seeds'],
@@ -211,7 +211,7 @@ def main():
                     t0 = time.time()
                     test_metrics, _, _ = evaluate_model(model, test_loader, scaler_y, device)
                     eval_time = time.time() - t0
-                    sigma_values.append(test_metrics['error_std'])
+                    seed_metrics.append(test_metrics)
                     
                     print(
                         f"[{target_name}] sweep {percent}% seed {seed}: "
@@ -222,16 +222,17 @@ def main():
                     if use_wandb:
                         wandb.finish()
                 
-                mean_sigma = np.mean(sigma_values)
-                std_sigma = np.std(sigma_values, ddof=1)
-                print(f"  σ = {mean_sigma:.4f} ± {std_sigma:.4f}")
-                
-                sweep_results.append({
+                keys = ['mae', 'rmse', 'r2', 'error_std']
+                agg = {
                     'percent': percent,
                     'num_samples': num_samples,
-                    'sigma_mean': mean_sigma,
-                    'sigma_std': std_sigma
-                })
+                }
+                for k in keys:
+                    vals = [m[k] for m in seed_metrics]
+                    agg[f'{k}_mean'] = np.mean(vals)
+                    agg[f'{k}_std'] = np.std(vals, ddof=1) if len(vals) > 1 else 0.0
+                print(f"  MAE = {agg['mae_mean']:.4f}, RMSE = {agg['rmse_mean']:.4f}, R² = {agg['r2_mean']:.4f}, σ = {agg['error_std_mean']:.4f}")
+                sweep_results.append(agg)
             
             metrics_dir = results_dir / "metrics" / exp_name
             metrics_dir.mkdir(parents=True, exist_ok=True)
@@ -239,10 +240,21 @@ def main():
             sweep_df = pd.DataFrame(sweep_results)
             sweep_df.to_csv(str(metrics_dir / f"{target_name}_sweep.csv"), index=False)
             
+            row_100 = sweep_df[sweep_df['percent'] == 100].iloc[0]
+            agg_row = {
+                'target': target_name,
+                'mae_mean': row_100['mae_mean'], 'mae_std': row_100['mae_std'],
+                'rmse_mean': row_100['rmse_mean'], 'rmse_std': row_100['rmse_std'],
+                'r2_mean': row_100['r2_mean'], 'r2_std': row_100['r2_std'],
+                'error_std_mean': row_100['error_std_mean'],
+                'error_std_std': row_100['error_std_std'],
+            }
+            pd.DataFrame([agg_row]).to_csv(str(metrics_dir / f"{target_name}_aggregated.csv"), index=False)
+            
             fig_dir = results_dir / "figures" / exp_name
             fig_dir.mkdir(parents=True, exist_ok=True)
             plot_sigma_vs_orbit_inclusion(
-                [r['sigma_mean'] for r in sweep_results],
+                [r['error_std_mean'] for r in sweep_results],
                 [r['percent'] for r in sweep_results],
                 target_name,
                 str(fig_dir / f"{target_name}_sigma_vs_orbit.png")

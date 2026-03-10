@@ -23,43 +23,27 @@ from src.training.evaluation import (
 
 
 def build_features_partial_orbit(df, target_name, target_column, num_samples, convert_to_radians, random_seed):
-    """Build features with variable number of consecutive DPA samples."""
+    """Build features with variable number of consecutive DPA samples from precomputed orbit data (wide format)."""
     np.random.seed(random_seed)
     
-    group_cols = ['r', 'K', 'a', 'i', 'Period']
-    combos = df[group_cols].drop_duplicates().reset_index(drop=True)
+    dpa_cols = [f'DPA_{i/10:.1f}' for i in range(1, 11)]
     
     features_list = []
     targets_list = []
     
-    sample_points = np.linspace(0.1, 1.0, 10)
-    
-    for _, combo in combos.iterrows():
-        mask = np.ones(len(df), dtype=bool)
-        for col in group_cols:
-            mask &= (df[col] == combo[col])
-        
-        sub = df.loc[mask, ['Perid_fraq', 'DPA']].dropna()
-        sub_grouped = sub.groupby('Perid_fraq').mean().sort_index()
-        
-        if len(sub_grouped) < 10:
-            continue
-        
-        phases = sub_grouped.index.to_numpy()
-        dpa_vals = sub_grouped['DPA'].to_numpy()
-        
-        samples = np.interp(sample_points, phases, dpa_vals, left=dpa_vals[0], right=dpa_vals[-1])
+    for _, row in df.iterrows():
+        dpa_samples = row[dpa_cols].to_numpy()
         
         start_idx = np.random.randint(0, max(1, 11 - num_samples))
-        samples_subset = samples[start_idx:start_idx+num_samples]
+        samples_subset = dpa_samples[start_idx:start_idx+num_samples]
         
-        feature_row = np.concatenate(([combo['r'], combo['Period']], samples_subset))
+        feature_row = np.concatenate(([row['r'], row['Period']], samples_subset))
         features_list.append(feature_row)
         
         if target_name == 'spin':
-            targets_list.append(combo['a'])
+            targets_list.append(row['a'])
         elif target_name == 'incl':
-            targets_list.append(np.deg2rad(combo['i']) if convert_to_radians else combo['i'])
+            targets_list.append(np.deg2rad(row['i']) if convert_to_radians else row['i'])
     
     features = np.array(features_list, dtype=np.float32)
     targets = np.array(targets_list, dtype=np.float32)
@@ -91,6 +75,14 @@ def main():
     dataset_path = root / config['data']['dataset_path']
     df = pd.read_csv(dataset_path)
     print(f"Loaded dataset: {len(df)} rows")
+    
+    required_cols = ['r', 'K', 'a', 'i', 'Period'] + [f'DPA_{i/10:.1f}' for i in range(1, 11)]
+    missing_cols = [col for col in required_cols if col not in df.columns]
+    if missing_cols:
+        print(f"\n{'='*60}\nERROR: Dataset has wrong format!\nMissing columns: {missing_cols[:5]}...")
+        print("\nRegenerate with: cd src/preprocessing && python prepare_dataset_ultradense.py")
+        print(f"Expected DPA_0.1 ... DPA_1.0 columns. Got: {list(df.columns)[:8]}...\n{'='*60}\n")
+        sys.exit(1)
     
     results_dir = root / "results"
     exp_name = config['experiment']['name']
