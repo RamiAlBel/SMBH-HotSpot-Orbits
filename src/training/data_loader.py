@@ -87,7 +87,8 @@ def prepare_dataloaders(
     noise_enabled: bool = False,
     sigma_r: float = 0.1,
     sigma_T: float = 2.0,
-    sigma_DPA: float = 5.0
+    sigma_DPA: float = 5.0,
+    dpa_length_scale: float = 0.0
 ) -> Tuple[DataLoader, DataLoader, DataLoader, StandardScaler, StandardScaler, Tuple]:
     """Prepare train/val/test dataloaders with optional noise injection."""
     np.random.seed(random_seed)
@@ -104,7 +105,7 @@ def prepare_dataloaders(
     test_idx = indices[val_end:]
     
     if noise_enabled:
-        features_noisy = add_noise(features, sigma_r, sigma_T, sigma_DPA)
+        features_noisy = add_noise(features, sigma_r, sigma_T, sigma_DPA, dpa_length_scale)
     else:
         features_noisy = features.copy()
     

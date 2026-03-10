@@ -10,7 +10,7 @@
 #SBATCH --gres=gpu:1
 
 source /scratch/ralbe/miniconda3/etc/profile.d/conda.sh
-conda activate deepsdf
+conda activate meniar
 
 cd /scratch/ralbe/meniar_and_django/smbh_hotspots_repository/experiments/experiment_1_eq_avg
 

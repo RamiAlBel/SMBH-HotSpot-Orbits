@@ -58,7 +58,7 @@ def main():
             
             if config['training']['use_wandb']:
                 wandb.init(
-                    project="smbh-hotspots",
+                    project=config["training"].get("wandb_project", "smbh-hotspots"),
                     name=f"{exp_name}_{target_name}_seed{seed}",
                     config=config,
                     reinit=True

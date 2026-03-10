@@ -1,11 +1,52 @@
 import numpy as np
 
 
+def rbf_kernel(t1: np.ndarray, t2: np.ndarray, sigma: float, length_scale: float) -> np.ndarray:
+    """Compute RBF (Squared Exponential) kernel covariance matrix.
+    
+    K(t_i, t_j) = sigma^2 * exp(- (t_i - t_j)^2 / (2 * length_scale^2))
+    
+    Args:
+        t1: Array of time points (shape: n1,)
+        t2: Array of time points (shape: n2,)
+        sigma: Amplitude of the noise
+        length_scale: Controls smoothness (larger = smoother)
+    
+    Returns:
+        Covariance matrix of shape (n1, n2)
+    """
+    t1 = t1.reshape(-1, 1)
+    t2 = t2.reshape(1, -1)
+    sq_dist = (t1 - t2) ** 2
+    return sigma**2 * np.exp(-sq_dist / (2 * length_scale**2))
+
+
+def sample_gp_noise(time_points: np.ndarray, sigma: float, length_scale: float) -> np.ndarray:
+    """Sample smooth noise from a Gaussian Process with RBF kernel.
+    
+    Args:
+        time_points: Array of time points (e.g., [0.1, 0.2, ..., 1.0])
+        sigma: Amplitude of the noise (std dev)
+        length_scale: Smoothness parameter (larger = smoother)
+    
+    Returns:
+        Array of correlated noise values, same shape as time_points
+    """
+    K = rbf_kernel(time_points, time_points, sigma, length_scale)
+    
+    # Add small jitter for numerical stability
+    K += 1e-8 * np.eye(len(time_points))
+    
+    # Sample from multivariate normal with zero mean and covariance K
+    return np.random.multivariate_normal(np.zeros(len(time_points)), K)
+
+
 def add_noise(
     features: np.ndarray,
     sigma_r: float,
     sigma_T: float,
-    sigma_DPA: float
+    sigma_DPA: float,
+    dpa_length_scale: float = 0.0
 ) -> np.ndarray:
     """Add Gaussian noise to features before normalization.
     
@@ -17,6 +58,9 @@ def add_noise(
         sigma_r: Std dev for r noise (in units of M)
         sigma_T: Std dev for Period noise (in minutes)
         sigma_DPA: Std dev for DPA noise (in degrees)
+        dpa_length_scale: Length scale for GP-based DPA noise.
+                         If 0, uses independent Gaussian noise (old behavior).
+                         If > 0, uses smooth GP noise with RBF kernel.
     
     Returns:
         Noisy features array
@@ -28,7 +72,18 @@ def add_noise(
     noisy[:, 1] += np.random.normal(0, sigma_T, size=n_samples)
     
     if noisy.shape[1] > 2:
-        dpa_shape = noisy[:, 2:].shape
-        noisy[:, 2:] += np.random.normal(0, sigma_DPA, size=dpa_shape)
+        n_dpa_cols = noisy.shape[1] - 2
+        
+        if dpa_length_scale > 0:
+            # GP-based smooth noise
+            time_points = np.linspace(0.1, 1.0, n_dpa_cols)
+            
+            for i in range(n_samples):
+                gp_noise = sample_gp_noise(time_points, sigma_DPA, dpa_length_scale)
+                noisy[i, 2:] += gp_noise
+        else:
+            # Independent Gaussian noise (old behavior)
+            dpa_shape = noisy[:, 2:].shape
+            noisy[:, 2:] += np.random.normal(0, sigma_DPA, size=dpa_shape)
     
     return noisy

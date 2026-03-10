@@ -73,12 +73,15 @@ def prepare_dataloaders(features, targets, batch_size, train_ratio, val_ratio, r
     return prep_dl(
         features, targets, batch_size, train_ratio, val_ratio, random_seed,
         noise_config['enabled'], noise_config['sigma_r'], 
-        noise_config['sigma_T'], noise_config['sigma_DPA']
+        noise_config['sigma_T'], noise_config['sigma_DPA'],
+        noise_config.get('dpa_length_scale', 0.0)
     )
 
 
 def main():
-    config_path = Path(__file__).parent / "config.yaml"
+    config_name = sys.argv[1] if len(sys.argv) > 1 else "config.yaml"
+    config_path = Path(__file__).parent / config_name
+    print(f"Loading config: {config_name}")
     config = load_config(config_path)
     
     root = get_repo_root()
@@ -101,6 +104,9 @@ def main():
         print(f"Training for target: {target_name}")
         print(f"{'='*60}")
         
+        use_wandb = config['training'].get('use_wandb', False)
+        wandb_project = config['training'].get('wandb_project', 'exp III')
+        
         if config.get('sweep', {}).get('enabled', False):
             print("\n*** Running σ vs % orbit inclusion sweep ***")
             sweep_results = []
@@ -113,6 +119,14 @@ def main():
                 
                 for seed in config['training']['seeds']:
                     torch.manual_seed(seed)
+                    
+                    if use_wandb:
+                        wandb.init(
+                            project=wandb_project,
+                            name=f"{exp_name}_{target_name}_sweep{percent}_seed{seed}",
+                            config=config,
+                            reinit=True,
+                        )
                     
                     features, targets = build_features_partial_orbit(
                         df, target_name, target_column, num_samples,
@@ -143,7 +157,14 @@ def main():
                         device=device
                     )
                     
-                    trainer.train(epochs=config['training']['epochs'], verbose=False)
+                    trainer.train(
+                        epochs=config['training']['epochs'],
+                        use_wandb=use_wandb,
+                        verbose=False,
+                    )
+                    
+                    if use_wandb:
+                        wandb.finish()
                     
                     test_metrics, _, _ = evaluate_model(model, test_loader, scaler_y, device)
                     sigma_values.append(test_metrics['error_std'])
@@ -189,6 +210,14 @@ def main():
                 print(f"\n--- Seed {seed} ---")
                 torch.manual_seed(seed)
                 
+                if use_wandb:
+                    wandb.init(
+                        project=wandb_project,
+                        name=f"{exp_name}_{target_name}_seed{seed}",
+                        config=config,
+                        reinit=True,
+                    )
+                
                 train_loader, val_loader, test_loader, scaler_X, scaler_y, _ = prepare_dataloaders(
                     features, targets,
                     batch_size=config['training']['batch_size'],
@@ -213,7 +242,11 @@ def main():
                     device=device
                 )
                 
-                trainer.train(epochs=config['training']['epochs'], verbose=True)
+                trainer.train(
+                    epochs=config['training']['epochs'],
+                    use_wandb=use_wandb,
+                    verbose=True,
+                )
                 
                 test_metrics, test_targets, test_preds = evaluate_model(
                     model, test_loader, scaler_y, device
@@ -222,6 +255,9 @@ def main():
                 print(f"Test MAE: {test_metrics['mae']:.4f}")
                 print(f"Test R²: {test_metrics['r2']:.4f}")
                 print(f"Error σ: {test_metrics['error_std']:.4f}")
+                
+                if use_wandb:
+                    wandb.finish()
                 
                 result_row = {'target': target_name, 'seed': seed, **test_metrics}
                 all_results.append(result_row)

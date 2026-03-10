@@ -1,0 +1,51 @@
+experiment:
+  name: "experiment_4_noneq_full_no_noise"
+  description: "Non-equatorial orbits with full DPA(t) time series - NO NOISE"
+  
+data:
+  dataset_path: "data/processed/dpa_dataset_noneq.csv"
+  experiment_type: "timeseries"
+  num_samples: 10
+  half_orbit: false
+  
+targets:
+  - name: "spin"
+    column: "a"
+    convert_to_radians: false
+  - name: "incl"
+    column: "i"
+    convert_to_radians: true
+  - name: "theta"
+    column: "theta"
+    convert_to_radians: true
+  - name: "z"
+    column: "z"
+    convert_to_radians: false
+    
+noise:
+  enabled: false
+  sigma_r: 0.1
+  sigma_T: 2.0
+  sigma_DPA: 5.0
+  dpa_length_scale: 0.3
+  
+model:
+  hidden_dims: [256, 256]
+  num_blocks: 2
+  dropout: 0.1
+  
+training:
+  batch_size: 1024
+  epochs: 500
+  learning_rate: 0.001
+  weight_decay: 0.0001
+  early_stop_patience: 40
+  seeds: [42, 43, 44, 45, 46]
+  use_wandb: true
+  wandb_project: "exp IV"
+  
+split:
+  train: 0.8
+  val: 0.1
+  test: 0.1
+  random_seed: 42

@@ -24,7 +24,9 @@ from src.training.evaluation import (
 
 
 def main():
-    config_path = Path(__file__).parent / "config.yaml"
+    config_name = sys.argv[1] if len(sys.argv) > 1 else "config.yaml"
+    config_path = Path(__file__).parent / config_name
+    print(f"Loading config: {config_name}")
     config = load_config(config_path)
     
     root = get_repo_root()
@@ -106,7 +108,7 @@ def main():
             
             if config['training']['use_wandb']:
                 wandb.init(
-                    project="smbh-hotspots",
+                    project=config["training"].get("wandb_project", "smbh-hotspots"),
                     name=f"{exp_name}_{target_name}_seed{seed}",
                     config=config,
                     reinit=True
@@ -121,7 +123,8 @@ def main():
                 noise_enabled=config['noise']['enabled'],
                 sigma_r=config['noise']['sigma_r'],
                 sigma_T=config['noise']['sigma_T'],
-                sigma_DPA=config['noise']['sigma_DPA']
+                sigma_DPA=config['noise']['sigma_DPA'],
+                dpa_length_scale=config['noise'].get('dpa_length_scale', 0.0)
             )
             
             model = RegressionHead(

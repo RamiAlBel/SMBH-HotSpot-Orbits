@@ -68,12 +68,15 @@ def prepare_dataloaders(features, targets, batch_size, train_ratio, val_ratio, r
     return prep_dl(
         features, targets, batch_size, train_ratio, val_ratio, random_seed,
         noise_config['enabled'], noise_config['sigma_r'], 
-        noise_config['sigma_T'], noise_config['sigma_DPA']
+        noise_config['sigma_T'], noise_config['sigma_DPA'],
+        noise_config.get('dpa_length_scale', 0.0)
     )
 
 
 def main():
-    config_path = Path(__file__).parent / "config.yaml"
+    config_name = sys.argv[1] if len(sys.argv) > 1 else "config.yaml"
+    config_path = Path(__file__).parent / config_name
+    print(f"Loading config: {config_name}")
     config = load_config(config_path)
     
     root = get_repo_root()
@@ -110,6 +113,9 @@ def main():
         print(f"Training for target: {target_name}")
         print(f"{'='*60}")
         
+        use_wandb = config['training'].get('use_wandb', False)
+        wandb_project = config['training'].get('wandb_project', 'exp V')
+        
         if config.get('sweep', {}).get('enabled', False):
             print("\n*** Running σ vs % orbit inclusion sweep ***")
             sweep_results = []
@@ -127,6 +133,14 @@ def main():
                 ):
                     seed_start = time.time()
                     torch.manual_seed(seed)
+                    
+                    if use_wandb:
+                        wandb.init(
+                            project=wandb_project,
+                            name=f"{exp_name}_{target_name}_sweep{percent}_seed{seed}",
+                            config=config,
+                            reinit=True,
+                        )
                     
                     t0 = time.time()
                     features, targets = build_features_partial_orbit_noneq(
@@ -183,7 +197,11 @@ def main():
                     )
                     
                     t0 = time.time()
-                    trainer.train(epochs=config['training']['epochs'], verbose=False)
+                    trainer.train(
+                        epochs=config['training']['epochs'],
+                        use_wandb=use_wandb,
+                        verbose=False,
+                    )
                     print(
                         f"[{target_name}] sweep {percent}% seed {seed}: "
                         f"train {time.time() - t0:.1f}s",
@@ -200,6 +218,9 @@ def main():
                         f"eval {eval_time:.1f}s, total {time.time() - seed_start:.1f}s",
                         flush=True,
                     )
+                    
+                    if use_wandb:
+                        wandb.finish()
                 
                 mean_sigma = np.mean(sigma_values)
                 std_sigma = np.std(sigma_values, ddof=1)
@@ -263,6 +284,14 @@ def main():
                 seed_start = time.time()
                 torch.manual_seed(seed)
                 
+                if use_wandb:
+                    wandb.init(
+                        project=wandb_project,
+                        name=f"{exp_name}_{target_name}_seed{seed}",
+                        config=config,
+                        reinit=True,
+                    )
+                
                 t0 = time.time()
                 train_loader, val_loader, test_loader, scaler_X, scaler_y, _ = prepare_dataloaders(
                     features, targets,
@@ -293,7 +322,11 @@ def main():
                 )
                 
                 t0 = time.time()
-                trainer.train(epochs=config['training']['epochs'], verbose=True)
+                trainer.train(
+                    epochs=config['training']['epochs'],
+                    use_wandb=use_wandb,
+                    verbose=True,
+                )
                 print(
                     f"[{target_name}] seed {seed}: train {time.time() - t0:.1f}s",
                     flush=True,
@@ -313,6 +346,9 @@ def main():
                     f"total {time.time() - seed_start:.1f}s",
                     flush=True,
                 )
+                
+                if use_wandb:
+                    wandb.finish()
                 
                 result_row = {'target': target_name, 'seed': seed, **test_metrics}
                 all_results.append(result_row)
