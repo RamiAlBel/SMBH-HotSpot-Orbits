@@ -34,7 +34,6 @@ def build_features_partial_orbit_noneq(df, target_name, target_column, num_sampl
     targets_list = []
     
     n_windows = max(1, 11 - num_samples)
-    use_all_windows = (num_samples == 2)
     
     for _, row in tqdm(
         df.iterrows(),
@@ -53,12 +52,12 @@ def build_features_partial_orbit_noneq(df, target_name, target_column, num_sampl
         elif target_name == 'z':
             target_val = row['r'] * np.sin(np.deg2rad(row['theta']))
         
-        starts = range(n_windows) if use_all_windows else [np.random.randint(0, n_windows)]
-        for start_idx in starts:
-            samples_subset = dpa_samples[start_idx:start_idx+num_samples]
-            feature_row = np.concatenate(([row['r'], row['Period']], samples_subset))
-            features_list.append(feature_row)
-            targets_list.append(target_val)
+        # Consistently grab just ONE random window per row
+        start_idx = np.random.randint(0, n_windows)
+        samples_subset = dpa_samples[start_idx:start_idx+num_samples]
+        feature_row = np.concatenate(([row['r'], row['Period']], samples_subset))
+        features_list.append(feature_row)
+        targets_list.append(target_val)
     
     features = np.array(features_list, dtype=np.float32)
     targets = np.array(targets_list, dtype=np.float32)
@@ -124,20 +123,14 @@ def main():
             print("\n*** Running σ vs % orbit inclusion sweep ***")
             sweep_results = []
             
-            SEEDS_20PCT = list(range(42, 62))
-            
             for num_samples in config['sweep']['num_samples_range']:
                 percent = num_samples * 10
                 print(f"\n--- {percent}% orbit ({num_samples} samples) ---")
                 
-                seeds = SEEDS_20PCT if percent == 20 else config['training']['seeds']
-                if percent == 20:
-                    print(f"  Using 20 runs for reduced variance at 20% orbit", flush=True)
-                
                 seed_metrics = []
                 
                 for seed in tqdm(
-                    seeds,
+                    config['training']['seeds'],
                     desc=f"{target_name}: seeds (sweep, {percent}%)",
                     leave=False,
                 ):

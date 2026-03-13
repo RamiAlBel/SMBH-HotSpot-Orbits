@@ -22,30 +22,27 @@ def rbf_kernel(t1: np.ndarray, t2: np.ndarray, sigma: float, length_scale: float
 
 
 def sample_gp_noise(time_points: np.ndarray, sigma: float, length_scale: float) -> np.ndarray:
-    """Sample smooth noise from a Gaussian Process with RBF kernel, rescaled to match target sigma.
-    
+    """Sample smooth noise from a Gaussian Process with RBF kernel.
+
+    The RBF kernel is parameterised so that K[i,i] = sigma^2, guaranteeing
+    that every time point has the correct marginal std dev (sigma) regardless
+    of how many points are sampled.  No empirical rescaling is applied because
+    it is both unnecessary and numerically unstable for small k (e.g. k=2).
+
     Args:
         time_points: Array of time points (e.g., [0.1, 0.2, ..., 1.0])
-        sigma: Target std dev of the noise
+        sigma: Target std dev of the noise at each time point
         length_scale: Smoothness parameter (larger = smoother)
-    
+
     Returns:
-        Array of correlated noise values with empirical std dev matching sigma
+        Array of correlated noise values; each element has marginal std = sigma
     """
     K = rbf_kernel(time_points, time_points, sigma, length_scale)
-    
+
     # Add small jitter for numerical stability
     K += 1e-8 * np.eye(len(time_points))
-    
-    # Sample from multivariate normal with zero mean and covariance K
-    noise = np.random.multivariate_normal(np.zeros(len(time_points)), K)
-    
-    # Rescale to ensure empirical std matches target sigma
-    empirical_std = np.std(noise, ddof=1) if len(noise) > 1 else 1.0
-    if empirical_std > 1e-10:
-        noise = noise * (sigma / empirical_std)
-    
-    return noise
+
+    return np.random.multivariate_normal(np.zeros(len(time_points)), K)
 
 
 def add_noise(

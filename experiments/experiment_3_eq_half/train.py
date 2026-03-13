@@ -35,10 +35,7 @@ def build_features_partial_orbit(df, target_name, target_column, num_samples, co
     for _, row in df.iterrows():
         dpa_samples = row[dpa_cols].to_numpy()
         
-        if num_samples == 2:
-            start_indices = list(range(n_windows))
-        else:
-            start_indices = [np.random.randint(0, n_windows)]
+        start_indices = [np.random.randint(0, n_windows)]
         
         target_val = row['a'] if target_name == 'spin' else (np.deg2rad(row['i']) if convert_to_radians else row['i'])
         
