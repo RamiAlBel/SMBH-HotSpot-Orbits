@@ -37,6 +37,9 @@ def main():
     
     results_dir = root / "results"
     exp_name = config['experiment']['name']
+
+    # Collect per-sample test predictions for all targets per seed
+    per_seed_outputs = {seed: {} for seed in config['training']['seeds']}
     
     for target_config in config['targets']:
         target_name = target_config['name']
@@ -119,6 +122,12 @@ def main():
                 **test_metrics
             }
             all_results.append(result_row)
+
+            # Store per-sample outputs for this seed/target
+            per_seed_outputs[seed][target_name] = {
+                "y_true": test_targets,
+                "y_pred": test_preds,
+            }
             
             fig_dir = results_dir / "figures" / exp_name / target_name
             fig_dir.mkdir(parents=True, exist_ok=True)
@@ -162,6 +171,31 @@ def main():
         
         agg_df = pd.DataFrame([{'target': target_name, **aggregated}])
         agg_df.to_csv(str(metrics_dir / f"{target_name}_aggregated.csv"), index=False)
+
+    # Write combined per-sample CSVs per seed (for corner/error plots)
+    metrics_dir = results_dir / "metrics" / exp_name
+    metrics_dir.mkdir(parents=True, exist_ok=True)
+    for seed, outputs in per_seed_outputs.items():
+        # Only write if we have both spin and incl
+        if "spin" not in outputs or "incl" not in outputs:
+            continue
+        spin_true = outputs["spin"]["y_true"]
+        spin_pred = outputs["spin"]["y_pred"]
+        incl_true = outputs["incl"]["y_true"]
+        incl_pred = outputs["incl"]["y_pred"]
+        # Assume same test set size and ordering for both targets
+        n = len(spin_true)
+        df_seed = pd.DataFrame({
+            "sample_idx": list(range(n)),
+            "spin_true": spin_true,
+            "spin_pred": spin_pred,
+            "spin_error": spin_true - spin_pred,
+            "incl_true": incl_true,
+            "incl_pred": incl_pred,
+            "incl_error": incl_true - incl_pred,
+        })
+        out_path = metrics_dir / f"test_details_seed{seed}.csv"
+        df_seed.to_csv(out_path, index=False)
     
     print("\nExperiment 2 complete!")
 

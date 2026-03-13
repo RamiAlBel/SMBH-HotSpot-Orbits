@@ -64,6 +64,17 @@ def convert_to_degrees(value: float, target: str, exp_name: str) -> float:
     return value
 
 
+# Ultradense (exp 2, 3) stored i without /10; metrics from old preprocessing are 10x too high
+INCL_CORRECT_EXP = ["experiment_2_eq_full", "experiment_3_eq_half"]
+
+
+def correct_incl_scale(value: float, target: str, exp_name: str) -> float:
+    """Correct inclination metrics 10x for experiments trained on old ultradense preproc."""
+    if target != "incl" or exp_name not in INCL_CORRECT_EXP:
+        return value
+    return value / 10.0
+
+
 def load_aggregated_metrics(exp_name: str, noise_suffix: str = "") -> Dict[str, pd.DataFrame]:
     """Load aggregated metrics for a full-orbit experiment."""
     exp_dir = METRICS_DIR / f"{exp_name}{noise_suffix}"
@@ -78,10 +89,11 @@ def load_aggregated_metrics(exp_name: str, noise_suffix: str = "") -> Dict[str, 
         agg_path = exp_dir / f"{target}_aggregated.csv"
         if agg_path.exists():
             df = pd.read_csv(agg_path)
-            # Convert radians to degrees for angle metrics
             for col in ["mae_mean", "mae_std", "rmse_mean", "rmse_std", "error_std_mean", "error_std_std"]:
                 if col in df.columns:
-                    df[col] = df[col].apply(lambda x: convert_to_degrees(x, target, exp_name))
+                    df[col] = df[col].apply(
+                        lambda x: correct_incl_scale(convert_to_degrees(x, target, exp_name), target, exp_name)
+                    )
             metrics[target] = df
     
     return metrics
@@ -101,11 +113,12 @@ def load_sweep_metrics(exp_name: str, noise_suffix: str = "") -> Dict[str, pd.Da
         sweep_path = exp_dir / f"{target}_sweep.csv"
         if sweep_path.exists():
             df = pd.read_csv(sweep_path)
-            # Convert radians to degrees for angle metrics
             angle_cols = ["sigma_mean", "sigma_std", "mae_mean", "mae_std", "rmse_mean", "rmse_std", "error_std_mean", "error_std_std"]
             for col in angle_cols:
                 if col in df.columns:
-                    df[col] = df[col].apply(lambda x: convert_to_degrees(x, target, exp_name))
+                    df[col] = df[col].apply(
+                        lambda x: correct_incl_scale(convert_to_degrees(x, target, exp_name), target, exp_name)
+                    )
             metrics[target] = df
     
     return metrics
@@ -119,9 +132,9 @@ def plot_target_noise_comparison_aggregated(
     output_dir: Path
 ) -> None:
     """Compare noise vs no-noise for a single target (aggregated metrics)."""
-    fig, axes = plt.subplots(1, 4, figsize=(16, 4))
-    metric_names = ["mae_mean", "rmse_mean", "error_std_mean", "r2_mean"]
-    metric_labels = ["MAE", "RMSE", r"$\sigma$", r"$R^2$"]
+    fig, axes = plt.subplots(1, 2, figsize=(10, 4))
+    metric_names = ["error_std_mean", "r2_mean"]
+    metric_labels = [r"$\sigma$", r"$R^2$"]
     
     for ax_idx, (metric, label) in enumerate(zip(metric_names, metric_labels)):
         ax = axes[ax_idx]
@@ -136,8 +149,7 @@ def plot_target_noise_comparison_aggregated(
         
         bars = ax.bar(x, vals, color=colors, alpha=0.8, width=0.6)
         
-        # Add error bars for metrics with std (not R²)
-        if metric in ["mae_mean", "rmse_mean", "error_std_mean"]:
+        if metric == "error_std_mean":
             std_col = f"{metric.replace('_mean', '_std')}"
             if std_col in noise_metrics.columns and std_col in no_noise_metrics.columns:
                 noise_std = noise_metrics[std_col].values[0]
@@ -145,25 +157,16 @@ def plot_target_noise_comparison_aggregated(
                 ax.errorbar(x, vals, yerr=[noise_std, no_noise_std], 
                            fmt='none', color='black', capsize=5, linewidth=1.5)
         
-        unit_label = ""
-        if label in ["MAE", "RMSE", r"$\sigma$"]:
-            unit_label = f" ({TARGET_UNITS[target]})" if TARGET_UNITS[target] else ""
-        
+        unit_label = f" ({TARGET_UNITS[target]})" if label == r"$\sigma$" and TARGET_UNITS[target] else ""
         ax.set_ylabel(f"{label}{unit_label}")
         ax.set_title(f"{label}")
         ax.set_xticks(x)
         ax.set_xticklabels(labels_bar)
         ax.grid(True, alpha=0.3, axis='y')
         
-        # Add value labels on bars
         for i, (bar, val) in enumerate(zip(bars, vals)):
             height = bar.get_height()
-            if label == r"$R^2$":
-                text = f'{val:.3f}'
-            elif val < 0.01:
-                text = f'{val:.4f}'
-            else:
-                text = f'{val:.3f}'
+            text = f'{val:.3f}' if label == r"$R^2$" else (f'{val:.4f}' if val < 0.01 else f'{val:.3f}')
             ax.text(bar.get_x() + bar.get_width()/2., height,
                    text, ha='center', va='bottom', fontsize=8)
     
@@ -171,8 +174,10 @@ def plot_target_noise_comparison_aggregated(
                  fontsize=12, fontweight='bold')
     plt.tight_layout()
     
-    output_dir.mkdir(parents=True, exist_ok=True)
-    output_path = output_dir / f"{exp_name}_{target}_noise_comparison.png"
+    # Per-experiment subfolder for organization
+    exp_fig_dir = output_dir / exp_name
+    exp_fig_dir.mkdir(parents=True, exist_ok=True)
+    output_path = exp_fig_dir / f"{target}_noise_comparison.png"
     plt.savefig(output_path, dpi=200, bbox_inches='tight')
     plt.close()
     print(f"Saved: {output_path}")
@@ -218,8 +223,10 @@ def plot_target_sweep_comparison(
     
     plt.tight_layout()
     
-    output_dir.mkdir(parents=True, exist_ok=True)
-    output_path = output_dir / f"{exp_name}_{target}_sweep_comparison.png"
+    # Per-experiment subfolder for organization
+    exp_fig_dir = output_dir / exp_name
+    exp_fig_dir.mkdir(parents=True, exist_ok=True)
+    output_path = exp_fig_dir / f"{target}_sweep_comparison.png"
     plt.savefig(output_path, dpi=200, bbox_inches='tight')
     plt.close()
     print(f"Saved: {output_path}")
@@ -252,6 +259,8 @@ def _get_sweep_100pct_metrics(exp_name: str, target: str, noise_suffix: str) -> 
 
 def plot_all_experiments_per_target(target: str, output_dir: Path) -> None:
     """Compare all experiments for a single target (aggregated + 100% sweep fallback for exp 5)."""
+    if target in ["theta", "z"]:
+        return
     all_experiments = ["experiment_1_eq_avg", "experiment_2_eq_full", "experiment_4_noneq_full", "experiment_5_noneq_half"]
     valid_exps = [e for e in all_experiments if target in EXPERIMENT_TARGETS.get(e, [])]
     
@@ -279,9 +288,9 @@ def plot_all_experiments_per_target(target: str, output_dir: Path) -> None:
     if not results["noise"] and not results["no_noise"]:
         return
     
-    fig, axes = plt.subplots(1, 4, figsize=(16, 4))
-    metrics = ["mae_mean", "rmse_mean", "error_std_mean", "r2_mean"]
-    labels = ["MAE", "RMSE", r"$\sigma$", r"$R^2$"]
+    fig, axes = plt.subplots(1, 2, figsize=(10, 4))
+    metrics = ["error_std_mean", "r2_mean"]
+    labels = [r"$\sigma$", r"$R^2$"]
     
     for ax_idx, (metric, label) in enumerate(zip(metrics, labels)):
         ax = axes[ax_idx]
@@ -302,10 +311,7 @@ def plot_all_experiments_per_target(target: str, output_dir: Path) -> None:
         ax.bar(x - width/2, noise_vals, width, label="With Noise", color=COLORS[0], alpha=0.8)
         ax.bar(x + width/2, no_noise_vals, width, label="No Noise", color=COLORS[1], alpha=0.8)
         
-        unit_label = ""
-        if label in ["MAE", "RMSE", r"$\sigma$"]:
-            unit_label = f" ({TARGET_UNITS[target]})" if TARGET_UNITS[target] else ""
-        
+        unit_label = f" ({TARGET_UNITS[target]})" if label == r"$\sigma$" and TARGET_UNITS[target] else ""
         ax.set_ylabel(f"{label}{unit_label}")
         ax.set_title(f"{label}")
         ax.set_xticks(x)
@@ -326,6 +332,8 @@ def plot_all_experiments_per_target(target: str, output_dir: Path) -> None:
 
 def plot_sweep_experiments_per_target(target: str, output_dir: Path) -> None:
     """Compare sweep experiments (3 and 5) for a single target."""
+    if target in ["theta", "z"]:
+        return
     experiments = ["experiment_3_eq_half", "experiment_5_noneq_half"]
     
     # Filter experiments that have this target
@@ -467,11 +475,11 @@ def main():
             valid_targets = EXPERIMENT_TARGETS.get(exp, [])
             for target in valid_targets:
                 if target in noise_m and target in no_noise_m:
-                    noise_mae = noise_m[target]['mae_mean'].values[0]
-                    no_noise_mae = no_noise_m[target]['mae_mean'].values[0]
+                    noise_sig = noise_m[target]['error_std_mean'].values[0]
+                    no_noise_sig = no_noise_m[target]['error_std_mean'].values[0]
                     unit = TARGET_UNITS[target]
                     unit_str = f" {unit}" if unit else ""
-                    print(f"  {TARGET_NAMES[target]}: MAE {noise_mae:.4f} (noise) vs {no_noise_mae:.4f} (no noise){unit_str}")
+                    print(f"  {TARGET_NAMES[target]}: σ {noise_sig:.4f} (noise) vs {no_noise_sig:.4f} (no noise){unit_str}")
     
     print("\n" + "=" * 60)
     print(f"All figures saved to: {comparison_dir}")

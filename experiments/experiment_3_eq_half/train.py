@@ -27,6 +27,7 @@ def build_features_partial_orbit(df, target_name, target_column, num_samples, co
     np.random.seed(random_seed)
     
     dpa_cols = [f'DPA_{i/10:.1f}' for i in range(1, 11)]
+    n_windows = 11 - num_samples
     
     features_list = []
     targets_list = []
@@ -34,16 +35,18 @@ def build_features_partial_orbit(df, target_name, target_column, num_samples, co
     for _, row in df.iterrows():
         dpa_samples = row[dpa_cols].to_numpy()
         
-        start_idx = np.random.randint(0, max(1, 11 - num_samples))
-        samples_subset = dpa_samples[start_idx:start_idx+num_samples]
+        if num_samples == 2:
+            start_indices = list(range(n_windows))
+        else:
+            start_indices = [np.random.randint(0, n_windows)]
         
-        feature_row = np.concatenate(([row['r'], row['Period']], samples_subset))
-        features_list.append(feature_row)
+        target_val = row['a'] if target_name == 'spin' else (np.deg2rad(row['i']) if convert_to_radians else row['i'])
         
-        if target_name == 'spin':
-            targets_list.append(row['a'])
-        elif target_name == 'incl':
-            targets_list.append(np.deg2rad(row['i']) if convert_to_radians else row['i'])
+        for start_idx in start_indices:
+            samples_subset = dpa_samples[start_idx:start_idx+num_samples]
+            feature_row = np.concatenate(([row['r'], row['Period']], samples_subset))
+            features_list.append(feature_row)
+            targets_list.append(target_val)
     
     features = np.array(features_list, dtype=np.float32)
     targets = np.array(targets_list, dtype=np.float32)
@@ -103,13 +106,19 @@ def main():
             print("\n*** Running σ vs % orbit inclusion sweep ***")
             sweep_results = []
             
+            SEEDS_20PCT = list(range(42, 62))
+            
             for num_samples in config['sweep']['num_samples_range']:
                 percent = num_samples * 10
                 print(f"\n--- {percent}% orbit ({num_samples} samples) ---")
                 
+                seeds = SEEDS_20PCT if percent == 20 else config['training']['seeds']
+                if percent == 20:
+                    print(f"  Using 20 runs for reduced variance at 20% orbit")
+                
                 sigma_values = []
                 
-                for seed in config['training']['seeds']:
+                for seed in seeds:
                     torch.manual_seed(seed)
                     
                     if use_wandb:

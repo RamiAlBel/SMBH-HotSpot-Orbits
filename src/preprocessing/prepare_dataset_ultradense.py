@@ -31,7 +31,7 @@ for file in tqdm.tqdm(files, total=len(files), desc="Processing ultradense files
         r = float(parts[1][1:])
         K = float(parts[2][1:]) / 100.0
         a = float(parts[3][1:]) / 100.0
-        i = float(parts[4][1:])
+        i = float(parts[4][1:]) / 10.0
 
         # Load numeric data starting from line 3
         arr = np.loadtxt(io.StringIO("\n".join(lines[3:])))
