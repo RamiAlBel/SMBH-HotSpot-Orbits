@@ -2,7 +2,6 @@
 #SBATCH --job-name=exp7_noneq_noise_sweep
 #SBATCH --output=/scratch/ralbe/meniar_and_django/smbh_hotspots_repository/results/logs/exp7_noneq_noise_sweep_%A_%a.out
 #SBATCH --error=/scratch/ralbe/meniar_and_django/smbh_hotspots_repository/results/logs/exp7_noneq_noise_sweep_%A_%a.err
-#SBATCH --array=0-26%27
 #SBATCH --time=02:00:00
 #SBATCH --partition=titans
 #SBATCH --cpus-per-task=4

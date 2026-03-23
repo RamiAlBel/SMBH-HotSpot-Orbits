@@ -46,6 +46,6 @@ split:
 
 
 sweep:
-  sigma_T_values:   [0.0, 1.0,  2.0]   # minutes
-  sigma_r_values:   [0.0, 0.5, 2.0]   # units M
-  sigma_DPA_values: [0.0, 5.0, 10.0]  # degrees
+  sigma_T_values:   [0.0, 1.0,  2.0, 5.0, 10.0]   # minutes
+  sigma_r_values:   [0.0, 0.5, 2.0, 5.0, 10.0]   # units M
+  sigma_DPA_values: [0.0, 5.0, 10.0, 20.0, 30.0]  # degrees
