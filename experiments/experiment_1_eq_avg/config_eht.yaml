@@ -1,0 +1,38 @@
+experiment:
+  name: "experiment_1_eq_avg_eht"
+  description: "Equatorial orbits with averaged DPA - EHT (sigma_r=1.0M, sigma_DPA=14.0deg, sigma_P=1.0min)"
+  
+data:
+  dataset_path: "data/processed/dpa_dataset_i0.csv"
+  experiment_type: "avg"
+  
+targets:
+  - name: "spin"
+    column: "a"
+    convert_to_radians: false
+noise:
+  enabled: true
+  sigma_r: 1.0
+  sigma_T: 1.0
+  sigma_DPA: 14.0
+  
+model:
+  hidden_dims: [256, 256]
+  num_blocks: 2
+  dropout: 0.1
+  
+training:
+  batch_size: 1024
+  epochs: 200
+  learning_rate: 0.001
+  weight_decay: 0.0001
+  early_stop_patience: 15
+  seeds: [42, 43, 44]
+  use_wandb: true
+  wandb_project: "exp I"
+  
+split:
+  train: 0.8
+  val: 0.1
+  test: 0.1
+  random_seed: 42
