@@ -36,13 +36,13 @@ EXP_CONFIGS = {
         "name":    "experiment_6_eq_noise_sweep",
         "targets": ["spin", "incl"],
         "label":   "Experiment VI (equatorial)",
-        "grid_desc": "sigma_T ∈ [0,2] min, sigma_r ∈ [0,2] M, sigma_DPA ∈ [0,20] deg",
+        "grid_desc": "sigma_T ∈ [0,10] min, sigma_r ∈ [0,10] M, sigma_DPA ∈ [0,30] deg",
     },
     7: {
         "name":    "experiment_7_noneq_noise_sweep",
         "targets": ["spin", "incl", "theta", "z"],
         "label":   "Experiment VII (non-equatorial)",
-        "grid_desc": "sigma_T ∈ [0,2] min, sigma_r ∈ [0,2] M, sigma_DPA ∈ [0,20] deg",
+        "grid_desc": "sigma_T ∈ [0,10] min, sigma_r ∈ [0,10] M, sigma_DPA ∈ [0,30] deg",
     },
 }
 

@@ -18,19 +18,21 @@ pip install -r requirements.txt
 
 ## Running Experiments
 
-All commands should be run from the repo root (`smbh_hotspots_repository/`), not from the experiment directory. Each experiment has a `train.py` and an optional config argument:
+Each experiment has a `train.py` plus one or more config YAMLs. The non-equatorial experiments (4 and 5) ship two configs each — `config_neq30.yaml` (theta in [-30,30] dataset, legacy) and `config_neq45.yaml` (theta in [-45,45] dataset, default). The result path is driven by `experiment.name` inside each config, so two configs in the same folder produce two separate result subdirectories.
 
 ```bash
-# Run with default config
+# Equatorial experiments (single config, with optional no-noise variant)
 cd experiments/experiment_1_eq_avg && python train.py
-
-# Run with a specific config (e.g., no noise)
 cd experiments/experiment_1_eq_avg && python train.py config_no_noise.yaml
 
-# Submit to SLURM
-cd experiments/experiment_1_eq_avg && sbatch submit.sh
+# Non-equatorial: pass the variant explicitly
+cd experiments/experiment_4_noneq_full && python train.py config_neq45.yaml
+cd experiments/experiment_4_noneq_full && python train.py config_neq30_no_noise.yaml
 
-# Submit all experiments at once
+# Submit to SLURM (each variant has its own submit_*.sh)
+cd experiments/experiment_4_noneq_full && sbatch submit_neq45.sh
+
+# Submit all main experiments (defaults to neq45 for exp 4 and 5)
 cd experiments && bash submit_all.sh
 ```
 
@@ -68,11 +70,28 @@ python prepare_dataset_noneq.py       # → data/processed/dpa_dataset_noneq.csv
 
 ### Experiment structure
 
-Each experiment in `experiments/experiment_N_*/` contains:
-- `config.yaml` — All hyperparameters (model, training, noise, split, sweep)
-- `config_no_noise.yaml` — Same config with `noise.enabled: false`
-- `train.py` — Self-contained training script (adds `repo_root` to `sys.path`)
-- `submit.sh` / `submit_no_noise.sh` — SLURM submission scripts
+```
+experiments/
+├── experiment_1_eq_avg/                  # Exp I
+├── experiment_2_eq_full/                 # Exp II
+├── experiment_3_eq_partial/              # Exp III (sweep over orbit coverage)
+├── experiment_4_noneq_full/              # Exp IV — two datasets (neq30, neq45)
+│   ├── config_neq30{,_no_noise}.yaml
+│   ├── config_neq45{,_no_noise,_noise10}.yaml
+│   └── submit_neq30*.sh / submit_neq45*.sh
+├── experiment_5_noneq_partial/           # Exp V — two datasets (neq30, neq45)
+│   ├── config_neq30{,_no_noise}.yaml
+│   ├── config_neq45{,_no_noise}.yaml
+│   └── submit_neq30*.sh / submit_neq45*.sh
+└── uncertainty_experiments/              # Noise sweeps + Jacobian-noise studies
+    ├── eq_noise_sweep/
+    ├── neq30_noise_sweep/
+    ├── neq45_noise_sweep/
+    ├── eq_jacobian/
+    └── neq30_jacobian/
+```
+
+Each experiment folder contains a self-contained `train.py` (adds `repo_root` to `sys.path`), one or more `config*.yaml` files, and matching `submit*.sh` SLURM scripts.
 
 ### Experiment types
 
@@ -81,8 +100,10 @@ Each experiment in `experiments/experiment_N_*/` contains:
 | I | Equatorial averaged ΔPA | `dpa_dataset_i0.csv` | r, T, ΔPA_avg | α, i |
 | II | Equatorial full orbit | `dpa_dataset_ultradense.csv` | r, T, ΔPA(t)×10 | α, i |
 | III | Equatorial partial orbit + sweep | `dpa_dataset_ultradense.csv` | r, T, ΔPA(t)×k | α, i |
-| IV | Non-equatorial full orbit | `dpa_dataset_noneq.csv` | r, T, ΔPA(t)×10 | α, i, θ, z |
-| V | Non-equatorial partial orbit + sweep | `dpa_dataset_noneq.csv` | r, T, ΔPA(t)×k | α, i, θ, z |
+| IV | Non-equatorial full orbit | `dpa_dataset_noneq.csv` (neq30) **or** `dpa_dataset_neq_45.csv` (neq45, default) | r, T, ΔPA(t)×10 | α, i, θ, z |
+| V | Non-equatorial partial orbit + sweep | `dpa_dataset_noneq.csv` (neq30) **or** `dpa_dataset_neq_45.csv` (neq45, default) | r, T, ΔPA(t)×k | α, i, θ, z |
+
+Datasets: **neq30** has theta in [-30, 30]°; **neq45** has theta in [-45, 45]°. Active runs use **neq45** by default; the neq30 configs are kept for reference but their old results were dropped.
 
 ### Data flow
 
@@ -102,16 +123,18 @@ When `sweep.enabled: true` in config, trains 50 models (10 orbit coverage levels
 
 ### Output locations
 
+The leaf directory under `results/{checkpoints,figures,metrics}/` is the value of `experiment.name` from the config (not the folder name). For exp 4 / 5 this means each variant lands in its own subdirectory: e.g., `experiment_4_noneq_full_neq45/` and `experiment_4_noneq_full_neq45_no_noise/`. Uncertainty runs land under `uncertainty_<name>/`.
+
 ```
 results/
-├── checkpoints/experiment_N/{target}/model_seed{seed}.pth
-├── figures/experiment_N/{target}/error_hist_seed{seed}.png
-├── figures/experiment_N/{target}/pred_vs_actual_seed{seed}.png
-├── logs/                          # SLURM stdout/stderr
-└── metrics/experiment_N/
-    ├── {target}_summary.csv       # One row per seed
-    ├── {target}_aggregated.csv    # μ±σ across seeds
-    └── {target}_sweep.csv         # Sweep mode only
+├── checkpoints/<experiment.name>/{target}/model_seed{seed}.pth
+├── figures/<experiment.name>/{target}/error_hist_seed{seed}.png
+├── figures/<experiment.name>/{target}/pred_vs_actual_seed{seed}.png
+├── logs/                                  # SLURM stdout/stderr
+└── metrics/<experiment.name>/
+    ├── {target}_summary.csv               # One row per seed
+    ├── {target}_aggregated.csv            # μ±σ across seeds
+    └── {target}_sweep.csv                 # Sweep mode only
 ```
 
 ### WandB

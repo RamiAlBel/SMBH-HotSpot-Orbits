@@ -114,6 +114,17 @@ def main():
                 **test_metrics
             }
             all_results.append(result_row)
+
+            metrics_dir = results_dir / "metrics" / exp_name
+            metrics_dir.mkdir(parents=True, exist_ok=True)
+            predictions_df = pd.DataFrame({
+                'actual': test_targets,
+                'predicted': test_preds
+            })
+            predictions_df.to_csv(
+                str(metrics_dir / f"{target_name}_predictions_seed{seed}.csv"),
+                index=False
+            )
             
             fig_dir = results_dir / "figures" / exp_name / target_name
             fig_dir.mkdir(parents=True, exist_ok=True)

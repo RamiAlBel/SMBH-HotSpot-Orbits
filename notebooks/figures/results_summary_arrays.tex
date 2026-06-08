@@ -1,0 +1,35 @@
+\begin{table*}[ht!]
+    \centering
+    \caption{Bias ($\mu$), scatter ($\sigma$), and $R^2$ for Experiments~I, II, and~IV,
+        for a clean dataset and for the BHEX, ngEHT, and EHT instrument error budgets,
+        with the corresponding noise included during training. Noise budgets are quoted as
+        $(\sigma_{r}\,[M],\ \sigma_{\Delta\mathrm{PA}}\,[^\circ],\ \sigma_{T}\,[\mathrm{min}])$.}
+    \label{tab:results_summary}
+    \setlength{\tabcolsep}{4.5pt}
+    \small
+    \begin{tabular}{ll ccc ccc ccc ccc}
+        \hline\hline
+        \rule{0pt}{2.5ex}
+        & & \multicolumn{3}{c}{\textbf{No noise}} & \multicolumn{3}{c}{\textbf{BHEX}}
+          & \multicolumn{3}{c}{\textbf{ngEHT}} & \multicolumn{3}{c}{\textbf{EHT}} \\
+        & & \multicolumn{3}{c}{$(0,\,0,\,0)$} & \multicolumn{3}{c}{$(0.1,\,2,\,0.5)$}
+          & \multicolumn{3}{c}{$(0.65,\,9,\,1)$} & \multicolumn{3}{c}{$(1,\,14,\,1)$} \\
+        \cline{3-5}\cline{6-8}\cline{9-11}\cline{12-14}
+        \rule{0pt}{2.5ex}
+        \textbf{Exp} & \textbf{Target} & $\mu$ & $\sigma$ & $R^2$ & $\mu$ & $\sigma$ & $R^2$
+          & $\mu$ & $\sigma$ & $R^2$ & $\mu$ & $\sigma$ & $R^2$ \\
+        \hline
+        \rule{0pt}{2.5ex}
+        I & $a_*$ & $-0.006$ & $0.033$ & $0.997$ & $-0.002$ & $0.073$ & $0.985$ & $-0.008$ & $0.257$ & $0.811$ & $-0.003$ & $0.358$ & $0.633$ \\
+        \hline
+        \rule{0pt}{2.5ex}
+        II & $a_*$ & $-0.003$ & $0.041$ & $0.995$ & $-0.006$ & $0.062$ & $0.988$ & $-0.004$ & $0.186$ & $0.894$ & $+0.001$ & $0.258$ & $0.796$ \\
+         & $i$ [$^\circ$] & $-0.86$ & $1.88$ & $0.986$ & $-0.56$ & $2.78$ & $0.972$ & $-0.57$ & $4.40$ & $0.934$ & $-0.78$ & $5.44$ & $0.899$ \\
+        \hline
+        \rule{0pt}{2.5ex}
+        IV & $a_*$ & $-0.008$ & $0.207$ & $0.868$ & $-0.001$ & $0.226$ & $0.843$ & $-0.003$ & $0.292$ & $0.737$ & $-0.008$ & $0.327$ & $0.671$ \\
+         & $i$ [$^\circ$] & $-0.20$ & $3.39$ & $0.961$ & $-0.11$ & $3.89$ & $0.949$ & $-0.27$ & $5.49$ & $0.898$ & $-0.16$ & $6.40$ & $0.862$ \\
+         & $\theta$ [$^\circ$] & $-0.17$ & $9.50$ & $0.854$ & $-0.17$ & $10.49$ & $0.823$ & $-0.39$ & $12.81$ & $0.735$ & $+0.24$ & $13.98$ & $0.685$ \\
+        \hline
+    \end{tabular}
+\end{table*}
